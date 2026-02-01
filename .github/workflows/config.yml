@@ -7,7 +7,10 @@ on:
       ENV:
         description: 'окружение dev/DEV'
         required: true
-        type: environment
+        default: 'dev'
+        type: choice
+        options:
+          - dev
       BROWSER:
         description: 'выберите браузер'
         required: true
@@ -24,6 +27,7 @@ on:
         type: choice
         options:
           - smoke
+          - regress
       THREADS:
         description: 'параллельные потоки'
         required: true
@@ -37,7 +41,7 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    # environment: ${{ github.event.inputs.ENV }}
+    environment: ${{ github.event.inputs.ENV }}
 
     steps:
       - uses: actions/checkout@v4
@@ -65,25 +69,22 @@ jobs:
             -e THREADS=$THREADS \
             -v $(pwd)/allure-results:/usr/workspace/allure-results \
             ui-tests:latest
-          ls -R allure-results
 
       # Генерация Allure отчета
       - name: Generate Allure report
         if: always()
         run: |
-          docker run --rm -v $(pwd):/workspace mcr.microsoft.com/playwright/python:v1.47.0-noble \
-          bash -lc "apt-get update && apt-get install -y openjdk-17-jre nodejs npm && \
-                export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && \
-                export PATH=\$JAVA_HOME/bin:\$PATH && \
-                npm install -g allure-commandline --save-dev && \
-                cd /workspace && \
-                allure generate allure-results -c -o allure-report"
+          docker run --rm \
+            -v $(pwd):/workspace \
+            mcr.microsoft.com/playwright/python:v1.47.0-noble \
+            sh -c "pip install allure-pytest && cd /workspace && allure generate allure-results -c -o allure-report"
 
       # Деплой на GitHub Pages
       - name: Deploy to GitHub Pages
         if: success()
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: JamesIves/github-pages-deploy-action@4.1.5
         with:
           token: ${{ secrets.CI_TOKEN }}
           branch: gh-pages
           folder: allure-report
+
