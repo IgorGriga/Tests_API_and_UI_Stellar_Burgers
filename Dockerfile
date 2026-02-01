@@ -1,40 +1,46 @@
-# for local testing
+# FROM mcr.microsoft.com/playwright/python:v1.47.0-noble
+#
+# WORKDIR /usr/workspace
+#
+# # Установка дополнительных зависимостей
+# RUN apt-get update && apt-get install -y \
+#     gcc \
+#     && rm -rf /var/lib/apt/lists/*
+#
+# # Копируем и устанавливаем все зависимости из requirements.txt
+# COPY requirements.txt .
+# RUN pip install --no-cache-dir -r requirements.txt
+# RUN playwright install --with-deps
+#
+# COPY . .
+#
+# # Запуск всех тестов (API + UI)
+# CMD ["pytest", "tests/", "-v", "--headed"]
+
 
 FROM mcr.microsoft.com/playwright/python:v1.47.0-noble
 
 WORKDIR /usr/workspace
 
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Установка зависимостей
+RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN playwright install --with-deps
+RUN pip install --no-cache-dir -r requirements.txt pytest-xdist
+RUN playwright install --with-deps chromium firefox webkit
+
 
 COPY . .
 
-CMD ["pytest", "tests/", "-v"]
+# Переменные окружения по умолчанию
+ENV BROWSER=chromium
+ENV MARKER=smoke
+ENV THREADS=1
 
-
-# for github actions
-
-#FROM mcr.microsoft.com/playwright/python:v1.47.0-noble
-#
-#WORKDIR /usr/workspace
-#
-#RUN apt-get update && apt-get install -y \
-#    gcc \
-#    && rm -rf /var/lib/apt/lists/* \
-#
-#COPY requirements.txt .
-#RUN pip install --no-cache-dir -r requirements.txt
-#RUN playwright install --with-deps chromium firefox webkit
-#
-#COPY . .
-#
-#ENV BROWSER=chromium
-#ENV MARKER=smoke
-#ENV THREADS=1
-#
-#CMD ["/bin/sh", "-c", "pytest tests/"]
+# Запуск тестов с параметрами
+# CMD ["/bin/sh", "-c", "pytest tests/ -v -n $THREADS ${MARKER:+-m $MARKER} --alluredir=allure-results"]
+CMD ["bash", "-lc", "if [ \"$MARKER\" = \"all\" ]; then \
+  pytest test --alluredir=allure-results -n \"$THREADS\"; \
+else \
+  pytest test --alluredir=allure-results -m \"$MARKER\" -n \"$THREADS\"; \
+fi"]
