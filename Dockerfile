@@ -1,46 +1,39 @@
-# FROM mcr.microsoft.com/playwright/python:v1.47.0-noble
+#FROM mcr.microsoft.com/playwright/python:v1.47.0-noble
 #
-# WORKDIR /usr/workspace
+#WORKDIR /usr/workspace
 #
-# # Установка дополнительных зависимостей
-# RUN apt-get update && apt-get install -y \
-#     gcc \
-#     && rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && apt-get install -y \
+#    gcc \
+#    && rm -rf /var/lib/apt/lists/*
 #
-# # Копируем и устанавливаем все зависимости из requirements.txt
-# COPY requirements.txt .
-# RUN pip install --no-cache-dir -r requirements.txt
-# RUN playwright install --with-deps
+#COPY requirements.txt .
+#RUN pip install --no-cache-dir -r requirements.txt
+#RUN playwright install --with-deps
 #
-# COPY . .
+#COPY . .
 #
-# # Запуск всех тестов (API + UI)
-# CMD ["pytest", "tests/", "-v", "--headed"]
+#CMD ["pytest", "tests/"]
 
 
 FROM mcr.microsoft.com/playwright/python:v1.47.0-noble
 
 WORKDIR /usr/workspace
 
-# Установка зависимостей
-RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y gcc openjdk-17-jre nodejs npm && \
+    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && \
+    export PATH=\$JAVA_HOME/bin:\$PATH && \
+    npm install -g allure-commandline --save-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt pytest-xdist
+RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install --with-deps chromium firefox webkit
-
 
 COPY . .
 
-# Переменные окружения по умолчанию
 ENV BROWSER=chromium
 ENV MARKER=smoke
 ENV THREADS=1
 
-# Запуск тестов с параметрами
-# CMD ["/bin/sh", "-c", "pytest tests/ -v -n $THREADS ${MARKER:+-m $MARKER} --alluredir=allure-results"]
-CMD ["bash", "-lc", "if [ \"$MARKER\" = \"all\" ]; then \
-  pytest test --alluredir=allure-results -n \"$THREADS\"; \
-else \
-  pytest test --alluredir=allure-results -m \"$MARKER\" -n \"$THREADS\"; \
-fi"]
+CMD ["/bin/sh", "-c", "pytest tests/"]
